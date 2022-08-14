@@ -1,0 +1,40 @@
+{
+  "name": "pantheon-se/pantheon-se-plugin",
+  "type": "wordpress-plugin",
+  "license": "GPL-2.0-only",
+  "description": "Simple plugin for setting up demo content.",
+  "homepage": "https://github.com/pantheon-se/pantheon-se-plugin",
+  "authors": [
+    {
+      "name": "Kyle Taylor",
+      "email": "kyle.taylor@pantheon.io",
+      "homepage": "https://github.com/kyletaylored"
+    }
+  ],
+  "keywords": [
+    "wordpress",
+    "wpcli"
+  ],
+  "support": {
+    "issues": "https://github.com/pantheon-se/pantheon-se-plugin/issues"
+  },
+  "config": {
+    "platform": {
+      "php": "7.4"
+    },
+    "optimize-autoloader": true,
+    "sort-packages": true,
+    "allow-plugins": {
+      "composer/installers": true,
+    }
+  },
+  "require": {
+    "php": ">=7.1",
+    "composer/installers": "~1.0"
+  },
+  "autoload": {
+    "classmap": [
+      "pantheon-se-plugin.php.php"
+    ]
+  }
+}
