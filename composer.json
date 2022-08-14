@@ -25,16 +25,16 @@
     "optimize-autoloader": true,
     "sort-packages": true,
     "allow-plugins": {
-      "composer/installers": true,
+      "composer/installers": true
     }
   },
   "require": {
     "php": ">=7.1",
-    "composer/installers": "~1.0"
+    "composer/installers": "~1 || ~2"
   },
   "autoload": {
     "classmap": [
-      "pantheon-se-plugin.php.php"
+      "pantheon-se-plugin.php"
     ]
   }
 }
