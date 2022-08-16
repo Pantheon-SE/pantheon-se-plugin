@@ -70,9 +70,15 @@ class PANTHEON_SE_PLUGIN_CLI
      * default: 20
      * ---
      *
+     * [--page=<page>]
+     * : The page number of the results.
+     * ---
+     * default: 1
+     * ---
+     *
      * ## EXAMPLES
      *
-     *     wp pantheon generate --query="corporate sales"
+     *     wp pantheon generate --query="corporate sales" --page=2
      *
      * @when after_wp_load
      *
@@ -83,15 +89,16 @@ class PANTHEON_SE_PLUGIN_CLI
     {
 
         // Get Post Details.
-        $num_posts = (int)$assoc_args['num_posts'];
+        $num_posts =  (!empty($assoc_args['num_posts'])) ? (int) $assoc_args['num_posts'] : 1;
         $query = (!empty($assoc_args['query'])) ? (string)$assoc_args['query'] : null;
+        $page =  (!empty($assoc_args['page'])) ? (int) $assoc_args['page'] : 1;
 
         if ($num_posts > 50) {
             WP_CLI::error('You cannot create more than 50 posts.');
         }
 
         $progress = make_progress_bar('Generating Posts', $num_posts);
-        $post_data = $this->get_images($query, $num_posts);
+        $post_data = $this->get_images($query, $num_posts, $page);
         $post_count = count($post_data);
         $posts = [];
 
@@ -168,7 +175,7 @@ class PANTHEON_SE_PLUGIN_CLI
             $url = $this->image_api . '/curated?' . http_build_query(['per_page' => $num, 'page' => $page]);
         } else {
             $query = sanitize_text_field($query);
-            $url = $this->image_api . '/search?' . http_build_query(['query' => $query, 'per_page' => $num]);
+            $url = $this->image_api . '/search?' . http_build_query(['query' => $query, 'per_page' => $num, 'page' => $page]);
         }
 
         WP_CLI::debug("image url: " . $url, __CLASS__ . "->" . __FUNCTION__);
