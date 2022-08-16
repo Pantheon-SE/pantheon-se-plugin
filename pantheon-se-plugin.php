@@ -108,13 +108,13 @@ class PANTHEON_SE_PLUGIN_CLI
                 'post_status' => 'publish',
                 'post_author' => $this->create_user($image),
                 'post_type' => 'post',
-                'post_content' => sanitize_textarea_field($this->get_text($image)),
+                'post_content' => sanitize_textarea_field($this->get_text($image['alt'])),
                 'tags_input' => ['generated', $query],
             ];
 
             // Insert the post into the database.
             $post_id = wp_insert_post($my_post);
-            $this->attach_image($post_id, $image);
+            $this->attach_image($post_id, $image['alt'], $image['src']['large']);
 
             $posts[] = array_merge(['id' => $post_id], $my_post);
 
@@ -126,8 +126,32 @@ class PANTHEON_SE_PLUGIN_CLI
 
         $progress->finish();
 
-        WP_CLI::success($post_count . ' posts generated!'); // Prepends Success to message
+        WP_CLI::success($post_count . ' posts generated!');
         WP_CLI\Utils\format_items('table', $posts, ['id', 'post_title']);
+
+        // Generate about page
+        $random_page = $this->get_random_page();
+        // Code used to generate a post.
+        $my_page = [
+            'post_title' => 'About Us',
+            'post_status' => 'publish',
+            'post_author' => 1,
+            'post_type' => 'page',
+            'post_content' => sanitize_textarea_field($this->get_text($random_page['extract'])),
+            'tags_input' => ['wikipedia', $query],
+        ];
+        WP_CLI::success($random_page['displaytitle'] . ' About Us generated!');
+
+        // Insert the post into the database.
+        $post_id = wp_insert_post($my_page);
+        if (!empty($random_page['originalimage']['source'])) {
+            $this->attach_image($post_id, $random_page['title'], $random_page['originalimage']['source']);
+        }
+
+        // Generate example menu.
+        $menu = $this->generate_menu();
+        $this->register_menu($menu);
+        WP_CLI::success("'$menu' menu registered (footer_menu)");
     }
 
     /**
@@ -135,12 +159,13 @@ class PANTHEON_SE_PLUGIN_CLI
      *
      * @param string|null $query
      * @param int $num
+     * @param int $page
      * @return mixed|void
      */
-    private function get_images(string $query = null, int $num = 20)
+    private function get_images(string $query = null, int $num = 20, int $page = 1)
     {
         if (empty($query)) {
-            $url = $this->image_api . '/curated?' . http_build_query(['per_page' => $num]);
+            $url = $this->image_api . '/curated?' . http_build_query(['per_page' => $num, 'page' => $page]);
         } else {
             $query = sanitize_text_field($query);
             $url = $this->image_api . '/search?' . http_build_query(['query' => $query, 'per_page' => $num]);
@@ -208,12 +233,11 @@ class PANTHEON_SE_PLUGIN_CLI
     }
 
     /**
-     * @param $image
+     * @param $text
      * @return mixed|string
      */
-    protected function get_text($image)
+    protected function get_text($text)
     {
-        $text = $image['alt'];
         WP_CLI::debug($text, __CLASS__ . "->" . __FUNCTION__);
 
         $endpoint = $this->text_api;
@@ -252,20 +276,19 @@ class PANTHEON_SE_PLUGIN_CLI
             }
             return join(" ", $parts);
         }
-        {
-            return $text;
-        }
+
+        return $text;
     }
 
     /**
-     * @param $post_id
-     * @param $image
+     * @param $post_id Id of post or page.
+     * @param $image_name Alt text or title.
+     * @param $image_url URL of image.
      * @return void
      */
-    protected function attach_image($post_id, $image)
+    protected function attach_image($post_id, $image_name, $image_url)
     {
-        $image_name = $image['alt'];
-        $image_url = $image['src']['large'];
+
         WP_CLI::debug($image_url, __CLASS__ . "->" . __FUNCTION__);
 
         // Download image
@@ -297,7 +320,7 @@ class PANTHEON_SE_PLUGIN_CLI
             'guid' => $sideload['url'],
             'post_mime_type' => $sideload['type'],
             'post_title' => basename($sideload['file']),
-            'post_content' => $image['alt'],
+            'post_content' => $image_name,
             'post_status' => 'inherit',
         ];
 
@@ -314,6 +337,71 @@ class PANTHEON_SE_PLUGIN_CLI
         } else {
             WP_CLI::error("Error adding attachment to #$post_id");
         }
+    }
+
+    /**
+     * @param string $menu
+     * @return void
+     */
+    protected function generate_menu(string $menu = "Example Menu")
+    {
+        // Check if the menu exists
+        $menu_exists = wp_get_nav_menu_object( $menu );
+
+        // If it doesn't exist, let's create it.
+        if ( ! $menu_exists ) {
+            $menu_name = wp_slash($menu);
+            $menu_id = wp_create_nav_menu($menu_name);
+
+            // Set up default menu items
+            wp_update_nav_menu_item( $menu_id, 0, array(
+                'menu-item-title'   =>  __( 'Home', 'textdomain' ),
+                'menu-item-classes' => 'home',
+                'menu-item-url'     => home_url( '/' ),
+                'menu-item-status'  => 'publish'
+            ) );
+
+            wp_update_nav_menu_item( $menu_id, 0, array(
+                'menu-item-title'  =>  __( 'About Us', 'textdomain' ),
+                'menu-item-url'    => home_url( '/about-us/' ),
+                'menu-item-status' => 'publish'
+            ) );
+
+            return $menu_name;
+        }
+        return $menu;
+    }
+
+    /**
+     * @param string $menu_name
+     * @return void
+     */
+    protected function register_menu(string $menu_name = "Example Menu")
+    {
+        register_nav_menus( [
+            'footer_menu'  => __( $menu_name, 'text_domain' ),
+        ]);
+    }
+
+    /**
+     * Get random wikipedia page.
+     * @return mixed
+     */
+    protected function get_random_page() {
+        $url = 'https://en.wikipedia.org/api/rest_v1/page/random/summary';
+        WP_CLI::debug("page url: " . $url, __CLASS__ . "->" . __FUNCTION__);
+        $request = wp_remote_get($url, [
+            'headers' => [
+                "Content-Type" => "application/json"
+            ]
+        ]);
+
+        if (is_wp_error($request)) {
+            WP_CLI::error("Could not complete request: $url");
+        }
+
+        $body = wp_remote_retrieve_body($request);
+        return json_decode($body, true);
     }
 }
 
